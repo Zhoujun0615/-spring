@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+                           http://www.springframework.org/schema/beans/spring-beans.xsd
+                           http://www.springframework.org/schema/aop
+                           http://www.springframework.org/schema/aop/spring-aop.xsd
+                           http://www.springframework.org/schema/tx
+                           http://www.springframework.org/schema/tx/spring-tx.xsd">
+
+    <bean name="c" class="com.how2java.pojo.Category">
+        <property name="name" value="category 1"/>
+    </bean>
+    <bean name="p" class="com.how2java.pojo.Product">
+        <property name="name" value="product 1"/>
+        <property name="category" ref="c"/>
+    </bean>
+    <!-- AOP编程内容 -->
+
+    <!-- 创建业务类bean -->
+    <bean name="s" class="com.how2java.service.ProductService"></bean>
+    <!-- 创建切面类bean-->
+    <bean id="loggerAspect" class="com.how2java.aspect.LoggerAspect"></bean>
+    <!-- 切面配置 -->
+    <aop:config>
+        <!-- 定义一个切点-->
+        <aop:pointcut id="logger" expression=
+                "execution(* com.how2java.service.ProductService.*(..))"/>
+        <!--将切面和业务对象编织在一起-->
+        <aop:aspect ref="loggerAspect" >
+            <aop:around method="log" pointcut-ref="logger"/>
+        </aop:aspect>
+    </aop:config>
+
+    <!--使用Spring的jdbcTemplate简化jdbc操作 -->
+
+    <!--配置dbcp数据源连接池 -->
+    <bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource">
+        <property name="driverClassName" value="com.mysql.cj.jdbc.Driver"/>
+        <property name="url"
+                  value="jdbc:mysql://localhost:3306/how2java?useSSL=true&amp;serverTimezone=GMT"/>
+        <property name="username" value="root"/>
+        <property name="password" value="123456"/>
+    </bean>
+    <!--不适用使用jdbcDaosupport时的配置-->
+    <!--配置jdbc模板-->
+    <bean id="jdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+        <property name="dataSource" ref="dataSource"/>
+    </bean>
+    <bean id="jdbcUserDao" class="com.how2java.jdbc.JdbcUserDao">
+        <property name="jdbcTemplate" ref="jdbcTemplate"/>
+    </bean>
+
+    <!--适用使用jdbcDaosupport时的配置，无需配置jdbc模板-->
+    <bean id="jdbcUserDao2" class="com.how2java.jdbc.JdbcUserDao2">
+        <property name="dataSource" ref="dataSource"/>
+    </bean>
+
+    <!--Spring中的事务管理内容-->
+    <bean id="transactionAdd" class="com.how2java.jdbc.TransactionAdd">
+        <property name="userDao" ref="jdbcUserDao"/>
+    </bean>
+    <!--配置事务管理器-->
+    <!--事务包装类-->
+    <bean id="txManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dataSource"/>
+    </bean>
+    <!--配置事务详情（通知）
+         <tx:attributes> 用于配置事务详情
+         <tx:method> 详情具体配置
+         propagation="REQUIRED" 传播行为：必须在事务中进行
+         isolation="DEFAULT" 隔离级别：默认
+    -->
+    <tx:advice id="txAdvice" transaction-manager="txManager">
+        <tx:attributes>
+            <tx:method name="addTransaction" propagation="REQUIRED" isolation="DEFAULT"/>
+        </tx:attributes>
+    </tx:advice>
+    <!--AOP编程-->
+    <aop:config>
+        <aop:advisor advice-ref="txAdvice"
+                     pointcut="execution(* com.how2java.jdbc.TransactionAdd.*(..))"/>
+    </aop:config>
+</beans>
